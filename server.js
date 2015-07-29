@@ -12,9 +12,9 @@ server.connection({
 });
 
 var stripeKeys = {
-  publishableKey: process.env.STRIPE_PUBLIC_KEY,
+  publishableKey: 'pk_test_BZ0QTIwe7BVAk1ZDxOgWZ9Z6',
   // This is just a test key right now, nothing secret about it.
-  secretKey: process.env.STRIPE_SECRET_KEY
+  secretKey: 'sk_test_HbsdaR1Bn5I84vdezKa9VcvA'
 };
 
 var stripe = require('stripe')(stripeKeys.secretKey);

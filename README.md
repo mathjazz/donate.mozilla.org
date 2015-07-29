@@ -83,11 +83,3 @@ $> npm start
 
 $> npm test:selenium
 ```
-
-## Making a test stripe donation
-
-We use [Stripe](https://stripe.com) for our non paypal credit card payments.
-
-Stripe provides a handful of [test credit cards](https://stripe.com/docs/testing#cards).
-
-Example: 4242424242424242 works as a test Visa card number.
