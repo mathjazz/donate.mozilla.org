@@ -1,20 +1,27 @@
 import assign from 'react/lib/Object.assign';
 import reactGA from 'react-ga';
+import {Navigation} from 'react-router';
 
 module.exports = {
+  mixins: [Navigation],
   getInitialState: function() {
-    var amount = "";
-    var presets;
-    if (this.props.queryString) {
-      amount = this.props.queryString.amount;
-      presets = this.props.queryString.presets;
-    }
     return {
-      presets: presets,
-      amount: {state: {values: {amount: amount}}},
       paymentType: "",
-      localeCode: "US",
       submitting: false,
+      presets: this.props.presets,
+      currency: this.props.currency,
+      props: {
+        amount: {
+          values: {
+            amount: this.props.amount
+          }
+        },
+        frequency: {
+          values: {
+            frequency: this.props.frequency
+          }
+        }
+      },
       errors: {
         creditCardInfo: {
           page: 0,
@@ -47,13 +54,45 @@ module.exports = {
     });
   },
   onChange: function(name, value, field) {
-    var newState = this.state;
+    var newState = {};
     newState[name] = value;
-    if (field && newState.errors[name] && newState.errors[name][field]) {
+    if (field && this.state.errors[name] && this.state.errors[name][field]) {
       newState.errors[name][field] = "";
     }
     this.setState(newState);
     this.updateHeight();
+  },
+  updateFormField: function(name, value, values) {
+    this.onChange(name, value);
+    if (!values) {
+      return;
+    }
+    var newProps = this.state.props;
+    newProps[name].values = values;
+    this.setState({
+      props: newProps
+    });
+  },
+  onFrequencyChange: function(name, value, values) {
+    if (values && this.state.props.frequency.values.frequency !== values.frequency) {
+      this.setState({
+        presets: this.state.currency.presets[values.frequency]
+      });
+    }
+    this.updateFormField(name, value, values);
+  },
+  onCurrencyChanged: function(e) {
+    var value = e.currentTarget.value;
+    var currencies = this.props.currencies;
+    var currency = currencies[value] || this.state.currency;
+    var presets = currency.presets[this.state.props.frequency.values.frequency];
+    var newProps = this.state.props;
+    newProps.amount.values.amount = "";
+    this.setState({
+      presets: presets,
+      currency: currency,
+      props: newProps
+    });
   },
   onPageError: function(errors, index) {
     var stateErrors = this.state.errors;
@@ -96,7 +135,8 @@ module.exports = {
     this.updateHeight();
   },
   submit: function(action, props, callback) {
-    props.localeCode = this.state.localeCode || "US";
+    props.locale = this.props.locales[0];
+    props.currency = this.state.currency.code;
     fetch(action, {
       method: 'post',
       credentials: 'same-origin',
@@ -108,7 +148,9 @@ module.exports = {
     }).then(function(response) {
       return response.json();
     }).then(function(json) {
-      callback(json);
+      if (callback) {
+        callback(json);
+      }
     });
   },
   stripeSuccess: function(data) {
@@ -132,16 +174,11 @@ module.exports = {
     }
 
     var params = '?payment=Stripe&str_amount=' + amount + '&str_currency=' + currency + '&str_id=' +transactionId + '&str_frequency=' +donationFrequency;
-    var thankYouURL = '/thank-you/' + params;
 
-    if (window.location.assign) {
-      window.location.assign(thankYouURL);
-    } else {
-      window.location = thankYouURL;
-    }
+    this.transitionTo('/' + this.props.locales[0] + '/thank-you/?' + params);
   },
   stripeError: function(error) {
-    var newState = this.state;
+    var newState = {};
     var cardErrorCodes = {
       "invalid_number": {
         name: "creditCardInfo",
@@ -189,16 +226,18 @@ module.exports = {
         message: this.getIntlMessage('declined_card')
       }
     };
+
     var cardError = cardErrorCodes[error.code];
     newState.submitting = false;
+    newState.errors = this.state.errors;
     if (error.rawType === "card_error" && cardError) {
-      if (newState.errors[cardError.name].page < newState.activePage) {
-        newState.activePage = newState.errors[cardError.name].page;
+      if (this.state.errors[cardError.name].page < this.state.activePage) {
+        newState.activePage = this.state.errors[cardError.name].page;
       }
       newState.errors[cardError.name][cardError.field] = cardError.message;
     } else {
-      if (newState.errors.other.page < newState.activePage) {
-        newState.activePage = newState.errors.other.page;
+      if (this.state.errors.other.page < this.state.activePage) {
+        newState.activePage = this.state.errors.other.page;
       }
       newState.errors.other.message = this.getIntlMessage('try_again_later');
     }
@@ -225,7 +264,7 @@ module.exports = {
       exp_year: submitProps.expYear
     }, function(status, response) {
       if (response.error) {
-        error(result.error);
+        error(response.error);
       } else {
         submitProps.cardNumber = "";
         submitProps.stripeToken = response.id;
@@ -272,14 +311,47 @@ module.exports = {
     var self = this;
     var props = {};
     fields.forEach(function(name) {
-      props = assign(props, self.state[name].state.values);
+      var state = self.state[name].state;
+      var prop;
+      // Currently some fields expose their values on the form, and not themselves.
+      // So we need to check for props in both places until all field componenets are updated.
+      if (state) {
+        prop = state.values;
+      }
+      if (!prop) {
+        prop = self.state.props[name].values;
+      }
+      // Modify props to now contain the values in prop.
+      assign(props, prop);
     });
     return props;
   },
-  paypal: function(validate, props, callback) {
+  paypal: function(validate, props) {
     this.onSubmit("/api/paypal", validate, props, function(json) {
       window.location = json.endpoint + "/cgi-bin/webscr?cmd=_express-checkout&useraction=commit&token=" + json.token;
     });
+  },
+  signupSuccess: function(result) {
+    this.setState({
+      submitting: false
+    });
+    if (result.error) {
+      this.setState({
+        errors: {
+          other: {
+            message: this.getIntlMessage('try_again_later')
+          }
+        }
+      });
+    } else {
+      this.transitionTo('/' + this.props.locales[0] + '/share');
+    }
+  },
+  signup: function(validate, props) {
+    this.setState({
+      submitting: true
+    });
+    this.onSubmit("/api/signup", validate, props, this.signupSuccess);
   },
   onSubmit: function(action, validate, props, callback) {
     var valid = this.validateProps(validate);

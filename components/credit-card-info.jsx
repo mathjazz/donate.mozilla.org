@@ -13,7 +13,7 @@ var CreditCardInfo = React.createClass({
         cardNumber: "",
         expMonth: "",
         expYear: "",
-        cvc: "",
+        cvc: ""
       },
       cardNumberValid: !this.props.error.number,
       expMonthValid: !this.props.error.monthExp,
@@ -31,6 +31,7 @@ var CreditCardInfo = React.createClass({
     if (this.props.error.number) {
       return false;
     }
+    cardNumber = cardNumber.replace(/ /g, "");
     if ((cardNumber.match(regVisa) && cardNumber.match(regVisa).length > 0) ||
         (cardNumber.match(regMC) && cardNumber.match(regMC).length > 0) ||
         (cardNumber.match(regAMEX) && cardNumber.match(regAMEX).length > 0)) {
@@ -39,12 +40,26 @@ var CreditCardInfo = React.createClass({
     return false;
   },
   validate: function() {
-    var valid = this.validateFields(["expMonth", "expYear", "cvc"]);
+    var valid = this.validateFields(["cvc"]);
     var cardNumber = this.state.values.cardNumber;
     if (!this.checkCardNumber(cardNumber)) {
       valid = false;
       this.setState({
         cardNumberValid: false
+      });
+    }
+    var year = parseInt(this.state.values.expYear, 10);
+    if (this.props.error.yearExp || !year || year < 15) {
+      valid = false;
+      this.setState({
+        expYearValid: false
+      });
+    }
+    var month = parseInt(this.state.values.expMonth, 10);
+    if (this.props.error.monthExp || !month || month < 1 || month > 12) {
+      valid = false;
+      this.setState({
+        expMonthValid: false
       });
     }
     return valid;
@@ -55,21 +70,32 @@ var CreditCardInfo = React.createClass({
   onCardInput: function(e) {
     var value = e.currentTarget.value;
     var state = this.state;
-    state.values.cardNumber = value;
-    if (this.checkCardNumber(value)) {
-      state.cardNumberValid = true;
+    if (/^(\d| )*$/.test(value) && value.replace(/ /g, "").length <= 16) {
+      state.values.cardNumber = value;
+      if (this.checkCardNumber(value)) {
+        state.cardNumberValid = true;
+      }
+      this.setState(state);
+      this.onChange("number");
     }
-    this.setState(state);
-    this.onChange("number");
   },
   onExpMonthInput: function(e) {
-    this.onInput("expMonth", e.currentTarget.value);
+    var value = e.currentTarget.value;
+    if (/^(\d)*$/.test(value)) {
+      this.onInput("expMonth", value);
+    }
   },
   onExpYearInput: function(e) {
-    this.onInput("expYear", e.currentTarget.value);
+    var value = e.currentTarget.value;
+    if (/^(\d)*$/.test(value)) {
+      this.onInput("expYear", value);
+    }
   },
   onCvcInput: function(e) {
-    this.onInput("cvc", e.currentTarget.value);
+    var value = e.currentTarget.value;
+    if (/^(\d)*$/.test(value)) {
+      this.onInput("cvc", value);
+    }
   },
   render: function() {
     var hintClassIconName = "fa fa-question-circle hint";
@@ -109,13 +135,14 @@ var CreditCardInfo = React.createClass({
     if (errorMessage === "") {
       errorMessageClassName += " hidden";
     }
+    var cardNumber = this.state.values.cardNumber;
     return (
       <div>
         <div className="row">
           <div className="full">
             <div className="field-container">
               <i className="fa fa-credit-card field-icon"></i>
-              <input type="tel" className={cardClassName} id="card-number-input" name="cc_number" onChange={this.onCardInput} value={this.state.values.cardNumber} placeholder={this.getIntlMessage('credit_card_number')} maxLength="16" autoComplete="off"/>
+              <input type="tel" className={cardClassName} id="card-number-input" name="cc_number" onChange={this.onCardInput} value={cardNumber} placeholder={this.getIntlMessage('credit_card_number')} autoComplete="off"/>
             </div>
           </div>
         </div>
@@ -137,7 +164,7 @@ var CreditCardInfo = React.createClass({
           </div>
           <div className="full">
             <div className={hintClassName}>
-              <img src="https://ddz69tinzt56n.cloudfront.net/images/CVC-illustration.png" className="left"/>
+              <img src="/images/CVC-illustration.png" className="left"/>
               <div className="">{this.getIntlMessage('cvc_info')}</div>
             </div>
           </div>

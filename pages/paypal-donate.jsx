@@ -2,7 +2,7 @@ import React from 'react';
 import Footer from '../components/footer.jsx';
 import Header from '../components/header.jsx';
 import SimplePaypal from '../components/simple-paypal.jsx';
-import { FormattedHTMLMessage, IntlMixin } from 'react-intl';
+import { IntlMixin } from 'react-intl';
 
 var simplePaypal = React.createClass({
   mixins: [IntlMixin],
@@ -11,9 +11,12 @@ var simplePaypal = React.createClass({
       <div className="mozilla-eoy-donation">
         <Header/>
         <SimplePaypal
+          presets={this.props.presets}
           currency={this.props.currency}
-          minAmount={this.props.minAmount}
+          amount={this.props.amount}
+          frequency={this.props.frequency}
           paypalLocal={this.props.paypalLocal}
+          locales={this.props.locales}
         />
         <Footer/>
       </div>

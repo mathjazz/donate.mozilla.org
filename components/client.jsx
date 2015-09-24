@@ -12,31 +12,57 @@ function redirectTo(pathname, query, Handler) {
   if(paths.indexOf(pathname) === -1) {
     Handler.replaceWith('/');
   } else {
-    Handler.replaceWith(pathname, {}, query)
+    Handler.replaceWith(pathname, {}, query);
   }
 }
 
 Router.run(routes, Router.HistoryLocation, function (Handler, state) {
-  var pathname = state.query.pathname || state.pathname;
   var lang = i18n.isSupportedLanguage(i18n.currentLanguage) ? i18n.currentLanguage : i18n.defaultLang;
-  var query = state.query.pathname ? {} : state.query;
+  var queryString = state.query;
+  var pathname = queryString.pathname || state.pathname;
 
-  var values = query.currency && currencies[query.currency] ? currencies[query.currency] : currencies['usd'];
-  values.queryString = state.query;
+  var presets = "";
+  var currencyCode = "usd";
+  var amount = "";
+  var frequency = "single";
+  if (queryString) {
+    presets = queryString.presets || presets;
+    currencyCode = queryString.currency || currencyCode;
+    amount = queryString.amount || amount;
+    if (queryString.frequency === "monthly") {
+      frequency = "monthly";
+    }
+  }
+  var currency = currencies[currencyCode];
+  presets = presets.split(",");
+
+  // We didn't get valid presets from the query string,
+  // so default to the currency and frequency preset.
+  if (presets.length !== 4) {
+    presets = currency.presets[frequency];
+  }
+
+  var values = {
+    currency: currency,
+    presets: presets,
+    currencies: currencies,
+    amount: amount,
+    frequency: frequency
+  };
 
   // checking if language code is part of the URL e.g. /en-US/thank-you
-  if(i18n.urlOverrideLang(state.query.pathname).test) {
+  if(i18n.urlOverrideLang(queryString.pathname).test) {
     // but is the language code supported in our app?
     if(i18n.isSupportedLanguage(i18n.urlOverrideLang().lang)) {
       var messages = i18n.intlDataFor(i18n.urlOverrideLang().lang);
       values = assign(values, messages);
     } else {
       pathname = pathname.split('/')[2] ? pathname.split('/')[2] : '';
-      return redirectTo(pathname, query, Handler)
+      return redirectTo(pathname, queryString, Handler);
     }
     // if not we will hijack the URL and insert the language code in the URL
-  } else if(!i18n.urlOverrideLang(state.query.pathname).test) {
-    return redirectTo("/" + lang + pathname, query, Handler)
+  } else if(!i18n.urlOverrideLang(queryString.pathname).test) {
+    return redirectTo("/" + lang + pathname, queryString, Handler);
   }
   React.render(<Handler {...values} />, document.querySelector("#my-app"));
 });

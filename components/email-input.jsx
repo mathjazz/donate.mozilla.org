@@ -9,7 +9,8 @@ var EmailInput = React.createClass({
       values: {
         email: ""
       },
-      valid: true
+      valid: true,
+      errorMessage: ""
     };
   },
   componentDidMount: function() {
@@ -17,8 +18,14 @@ var EmailInput = React.createClass({
   },
   validate: function() {
     var valid = !!this.state.values.email;
+    var errorMessage = "";
+    if (!this.refs.inputElement.getDOMNode().validity.valid) {
+      valid = false;
+      errorMessage = this.getIntlMessage('email_invalid');
+    }
     this.setState({
-      valid: valid
+      valid: valid,
+      errorMessage: errorMessage
     });
     return valid;
   },
@@ -39,17 +46,34 @@ var EmailInput = React.createClass({
     });
     this.props.onChange(this.props.name, this);
   },
-  render: function() {
+  renderHint: function() {
     var hintClassIconName = "fa fa-question-circle hint";
     var hintClassName = "hint-msg small";
+    var info = this.props.info;
     if (this.state.showHint) {
       hintClassIconName += " on";
     } else {
       hintClassName += " hidden";
     }
+    if (info) {
+      return (
+        <span>
+          <i onClick={this.hintClicked} className={hintClassIconName}></i>
+          <div className={hintClassName}>
+            <FormattedHTMLMessage message={info}/>
+          </div>
+        </span>
+      );
+    }
+  },
+  render: function() {
     var inputClassName = "";
     if (!this.state.valid) {
       inputClassName += "parsley-error";
+    }
+    var errorMessageClassName = "row error-msg-row";
+    if (!this.state.errorMessage) {
+      errorMessageClassName += " hidden";
     }
     return (
       <div className="cc-additional-info" id="email-row">
@@ -57,11 +81,19 @@ var EmailInput = React.createClass({
           <div className="full">
             <div className="field-container">
               <i className="fa fa-envelope field-icon"></i>
-              <input type="email" className={inputClassName} name="email" value={this.state.values.email} onChange={this.onEmailChange} placeholder={this.getIntlMessage('email')}/>
-              <i onClick={this.hintClicked} className={hintClassIconName}></i>
-              <div className={hintClassName}>
-                <FormattedHTMLMessage message={ this.getIntlMessage("email_info") } />
-              </div>
+              <input type="email" ref="inputElement" className={inputClassName} name="email" value={this.state.values.email} onChange={this.onEmailChange} placeholder={this.getIntlMessage('email')}/>
+              {this.renderHint()}
+            </div>
+          </div>
+        </div>
+        <div className={errorMessageClassName}>
+          <div className="full">
+            <div id="amount-error-msg">
+              <ul id="parsley-id-multiple-donation_amount" className="parsley-errors-list filled">
+                <li className="parsley-custom-error-message">
+                  {this.state.errorMessage}
+                </li>
+              </ul>
             </div>
           </div>
         </div>
